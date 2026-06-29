@@ -39,23 +39,17 @@
     let html5QrcodeScanner;
     let currentRowNumber = null;
 
-    function onScanSuccess(decodedText) {
+   function onScanSuccess(decodedText) {
       html5QrcodeScanner.clear();
       document.getElementById('loading-msg').style.display = 'block';
       document.getElementById('result').style.display = 'none';
 
-      // Use standard fetch API to talk to your Google Script backend
-      fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors', // Essential for Apps Script redirects
-        body: JSON.stringify({ action: 'getUserDetails', id: decodedText })
+      // A single, clean GET request that Safari won't block
+      fetch(`${SCRIPT_URL}?action=getUserDetails&id=${encodeURIComponent(decodedText)}`)
+      .then(res => {
+        if (!res.ok) throw new Error("Network connection failed");
+        return res.json();
       })
-      .then(() => {
-        // Because 'no-cors' mode hides the response content, we fetch via a temporary JSONP script load or dynamic fetch to see details.
-        // For absolute simplicity across platforms, we re-fetch via standard GET parameters to bypass redirect blocks.
-        return fetch(`${SCRIPT_URL}?action=getUserDetails&id=${encodeURIComponent(decodedText)}`);
-      })
-      .then(res => res.json())
       .then(response => {
         document.getElementById('loading-msg').style.display = 'none';
         if (response.success) {
@@ -71,6 +65,32 @@
         startScanner();
       });
     }
+
+    // (Leave your displayAttendee function as it is)
+
+    document.getElementById('pay-btn').addEventListener('click', function() {
+      if (!currentRowNumber) return;
+      this.innerText = "Updating Sheet...";
+      this.disabled = true;
+      
+      fetch(`${SCRIPT_URL}?action=markAsPaid&rowNumber=${currentRowNumber}`)
+      .then(res => res.json())
+      .then(response => {
+        if (response.success) {
+          alert("Status updated to PAID successfully!");
+          startScanner();
+        } else {
+          alert("Failed: " + response.message);
+          this.innerText = "Mark as PAID";
+          this.disabled = false;
+        }
+      })
+      .catch(err => {
+         alert("Error updating: " + err);
+         this.innerText = "Mark as PAID";
+         this.disabled = false;
+      });
+    });
 
     function displayAttendee(data) {
       currentRowNumber = data.rowNumber;
