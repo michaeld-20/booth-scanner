@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR Scanner Booth</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 15px; background: #f4f6f9; text-align: center; }
+    .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h2 { margin-top: 0; color: #1a1a1a; }
+    #reader { width: 100%; border-radius: 12px; overflow: hidden; border: none !important; }
+    .btn { width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn:disabled { background: #cccccc; cursor: not-allowed; }
+    .result-box { margin-top: 20px; padding: 15px; border-radius: 8px; background: #f8f9fa; text-align: left; display: none; border-left: 5px solid #007bff; }
+    .result-box p { margin: 6px 0; font-size: 15px; }
+    .loading { font-style: italic; color: #666; margin: 15px 0; display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Booth Registration Scanner</h2>
+    <div id="reader"></div>
+    <div id="loading-msg" class="loading">Searching spreadsheet...</div>
+    
+    <div id="result" class="result-box">
+      <h3 style="margin-top:0; color:#007bff;">Attendee Details</h3>
+      <div id="attendee-details"></div>
+      <button id="pay-btn" class="btn btn-success">Mark as PAID</button>
+      <button id="scan-again-btn" class="btn btn-secondary" onclick="startScanner()">Scan Next</button>
+    </div>
+  </div>
+
+  <script>
+    // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BETWEEN THE QUOTES BELOW:
+    const SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; 
+
+    let html5QrcodeScanner;
+    let currentRowNumber = null;
+
+    function onScanSuccess(decodedText) {
+      html5QrcodeScanner.clear();
+      document.getElementById('loading-msg').style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+
+      // Use standard fetch API to talk to your Google Script backend
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Essential for Apps Script redirects
+        body: JSON.stringify({ action: 'getUserDetails', id: decodedText })
+      })
+      .then(() => {
+        // Because 'no-cors' mode hides the response content, we fetch via a temporary JSONP script load or dynamic fetch to see details.
+        // For absolute simplicity across platforms, we re-fetch via standard GET parameters to bypass redirect blocks.
+        return fetch(`${SCRIPT_URL}?action=getUserDetails&id=${encodeURIComponent(decodedText)}`);
+      })
+      .then(res => res.json())
+      .then(response => {
+        document.getElementById('loading-msg').style.display = 'none';
+        if (response.success) {
+          displayAttendee(response.data);
+        } else {
+          alert(response.message);
+          startScanner();
+        }
+      })
+      .catch(err => {
+        document.getElementById('loading-msg').style.display = 'none';
+        alert("Scanner connection error: " + err);
+        startScanner();
+      });
+    }
+
+    function displayAttendee(data) {
+      currentRowNumber = data.rowNumber;
+      let detailsHtml = '';
+      for (let key in data) {
+        if (key !== 'rowNumber' && data[key]) {
+          let val = data[key];
+          if(key === 'Payment Status' && val === 'PAID') {
+            val = `<span style="color:#28a745; font-weight:bold;">${val}</span>`;
+          }
+          detailsHtml += `<p><strong>${key}:</strong> ${val}</p>`;
+        }
+      }
+      document.getElementById('attendee-details').innerHTML = detailsHtml;
+      document.getElementById('result').style.display = 'block';
+      if (data['Payment Status'] === 'PAID') {
+        document.getElementById('pay-btn').style.display = 'none';
+      } else {
+        document.getElementById('pay-btn').style.display = 'block';
+      }
+    }
+
+    document.getElementById('pay-btn').addEventListener('click', function() {
+      if (!currentRowNumber) return;
+      this.innerText = "Updating Sheet...";
+      this.disabled = true;
+      
+      fetch(`${SCRIPT_URL}?action=markAsPaid&rowNumber=${currentRowNumber}`, { method: 'GET' })
+      .then(res => res.json())
+      .then(response => {
+        if (response.success) {
+          alert("Status updated to PAID successfully!");
+          startScanner();
+        } else {
+          alert("Failed: " + response.message);
+        }
+      });
+    });
+
+    function startScanner() {
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('pay-btn').innerText = "Mark as PAID";
+      document.getElementById('pay-btn').disabled = false;
+      currentRowNumber = null;
+
+      html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    startScanner();
+  </script>
+</body>
+</html>
