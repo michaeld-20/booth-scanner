@@ -33,18 +33,18 @@
   </div>
 
   <script>
-    // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BETWEEN THE QUOTES BELOW:
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPoAp3iS3gqbH53fBWv9PXdWyTjQ7tZ8-hq96gWJjHMtBJxor858lSQ0osQ8NrimKX/exec"; 
+    // ⚠️ PASTE YOUR FRESH GOOGLE APPS SCRIPT WEB APP URL BETWEEN THE QUOTES BELOW:
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZg0k5O3ioIjTlz6LfOzoVMllQAhudvETFl9orsDIqWw6Upus19UdxjmNQyAOcRWjI/exec"; 
 
     let html5QrcodeScanner;
     let currentRowNumber = null;
 
-   function onScanSuccess(decodedText) {
+    function onScanSuccess(decodedText) {
       html5QrcodeScanner.clear();
       document.getElementById('loading-msg').style.display = 'block';
       document.getElementById('result').style.display = 'none';
 
-      // A single, clean GET request that Safari won't block
+      // Clean GET request that Safari will not block
       fetch(`${SCRIPT_URL}?action=getUserDetails&id=${encodeURIComponent(decodedText)}`)
       .then(res => {
         if (!res.ok) throw new Error("Network connection failed");
@@ -65,32 +65,6 @@
         startScanner();
       });
     }
-
-    // (Leave your displayAttendee function as it is)
-
-    document.getElementById('pay-btn').addEventListener('click', function() {
-      if (!currentRowNumber) return;
-      this.innerText = "Updating Sheet...";
-      this.disabled = true;
-      
-      fetch(`${SCRIPT_URL}?action=markAsPaid&rowNumber=${currentRowNumber}`)
-      .then(res => res.json())
-      .then(response => {
-        if (response.success) {
-          alert("Status updated to PAID successfully!");
-          startScanner();
-        } else {
-          alert("Failed: " + response.message);
-          this.innerText = "Mark as PAID";
-          this.disabled = false;
-        }
-      })
-      .catch(err => {
-         alert("Error updating: " + err);
-         this.innerText = "Mark as PAID";
-         this.disabled = false;
-      });
-    });
 
     function displayAttendee(data) {
       currentRowNumber = data.rowNumber;
@@ -118,7 +92,7 @@
       this.innerText = "Updating Sheet...";
       this.disabled = true;
       
-      fetch(`${SCRIPT_URL}?action=markAsPaid&rowNumber=${currentRowNumber}`, { method: 'GET' })
+      fetch(`${SCRIPT_URL}?action=markAsPaid&rowNumber=${currentRowNumber}`)
       .then(res => res.json())
       .then(response => {
         if (response.success) {
@@ -126,7 +100,14 @@
           startScanner();
         } else {
           alert("Failed: " + response.message);
+          this.innerText = "Mark as PAID";
+          this.disabled = false;
         }
+      })
+      .catch(err => {
+         alert("Error updating: " + err);
+         this.innerText = "Mark as PAID";
+         this.disabled = false;
       });
     });
 
